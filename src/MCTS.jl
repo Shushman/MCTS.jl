@@ -9,6 +9,10 @@ using CPUTime
 using Random
 using Printf
 
+# Extra for FV-MCTS
+using SparseArrays
+using LightGraphs
+
 export
     MCTSSolver,
     MCTSPlanner,
