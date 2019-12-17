@@ -10,17 +10,21 @@ Return the number of agents in the (PO)MDP
 function n_agents end
 
 """
-    function agent_actions (m::JointMDP, idx::Int64, s::AbstractVector{S}) where S
+    function get_agent_actions (m::JointMDP, idx::Int64, s::AbstractVector{S}) where S
 
-Returns the discrete actions for the given agent index and the current state
+Returns the discrete actions for the given agent index
 """
-function agent_actions end
+# NOTE: This will be called a LOT so it should not allocate each time....
+function get_agent_actions end
+
 
 """
     function coord_graph_adj_mat(m::JointMDP)
 
 Returns the Matrix{Int64} for the coordination graph. (this will be sparsified and converted to a coord graph)
+N.B. If it is a fully connected graph, just return ones(Int64, n_agents, n_agents)?
 """
 function coord_graph_adj_mat end
 
 # NOTE: JKG, Continue from here
+# User should override statetype and actiontype to return the CONCRETE type of state
