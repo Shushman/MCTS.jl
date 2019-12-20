@@ -4,24 +4,24 @@
 
 
 # JointMCTS tree has to be different, to efficiently encode Q-stats
-# SV is the hashtype for state vector
-mutable struct JointMCTSTree{S,SV}
+mutable struct JointMCTSTree{S}
 
     # To track if state node in tree already
     # NOTE: We don't strictly need this at all if no tree reuse...
-    state_map::Dict{SV,Int64}
+    state_map::Dict{AbstractVector{S},Int64}
 
     # these vectors have one entry for each state node
     # Only doing factored satistics (for actions), not state components
-    child_ids::Vector{Vector{Int}}
-    total_n::Vector{Int}
+    # Looks like we don't need child_ids and total_n
     s_labels::Vector{AbstractVector{S}}
 
     # Track stats for all action components over the n_iterations
     agent_actions::Vector{Int64}
     coord_graph_components::Vector{Vector{Int64}}
-    n_component_stats::Vector{Vector{Int64}}
-    q_component_stats::Vector{Vector{Float64}}
+
+
+    n_component_stats::Dict{AbstractVector{S},Vector{Vector{Int64}}}
+    q_component_stats::Dict{AbstractVector{S},Vector{Vector{Float64}}}
 
     # Don't need a_labels because need to do var-el for best action anyway
 end
@@ -32,9 +32,6 @@ function JointMCTSTree(joint_mdp::JointMDP{S,A},
                        coord_graph_components::Vector{Vector{Int64}},
                        init_state::AbstractVector{S},
                        sz::Int64=1000) where {S, A}
-
-    # TODO: add to requirements
-    svht = state_vec_hash_type(joint_mdp)
 
     # Initialize full agent actions
     agent_actions = Vector{Int64}(undef, n_agents(joint_mdp))
@@ -72,55 +69,50 @@ function JointMCTSTree(joint_mdp::JointMDP{S,A},
     end # for comp in n_comps
 
 
-    return JointMCTSTree{S,svht}(Dict{svht,Int64}(),
+    return JointMCTSTree{S}(Dict{typeof(init_state),Int64}(),
 
-                                sizehint!(Vector{Int}[], sz),
-                                sizehint!(Int[], sz),
-                                sizehint!(S[], sz),
+                                sizehint!(Vector{typeof(init_state)}, sz),
 
+                                agent_actions,
                                 coord_graph_components,
-                                n_component_stats,
-                                q_component_stats
+                                Dict{typeof(init_state),Vector{Vector{Int64}}}()
+                                Dict{typeof(init_state),Vector{Vector{Int64}}}()
                                 )
 end # function
 
 
 
 Base.isempty(t::JointMCTSTree) = isempty(t.state_map)
-state_nodes(t::JointMCTSTree) = (JointStateNode(t, id) for id in 1:length(t.total_n))
 
-struct JointStateNode{S,SV}
-    tree::JointMCTSTree{S,SV}
+struct JointStateNode{S}
+    tree::JointMCTSTree{S}
     id::Int64
 end
 
-get_state_node(tree::JointMCTSTree, s) = StateNode(tree, s)
+get_state_node(tree::JointMCTSTree, id) = JointStateNode(tree, id)
 
 # accessors for state nodes
 @inline state(n::JointStateNode) = n.tree.s_labels[n.id]
-@inline total_n(n::JointStateNode) = n.tree.total_n[n.id]
-@inline child_ids(n::JointStateNode) = n.tree.child_ids[n.id]
 
 ## No need for `children` or ActionNode just yet
 
-mutable struct JointMCTSPlanner{S, A, SV, SE, RNG <: AbstractRNG} <: AbstractMCTSPlanner{JM}
+mutable struct JointMCTSPlanner{S, A, SE, RNG <: AbstractRNG} <: AbstractMCTSPlanner{JM}
     solver::MCTSSolver
     mdp::JointMDP{S,A}
-    tree::JointMCTSTree{S,SV}
+    tree::JointMCTSTree{S}
     solved_estimate::SE
     rng::RNG
 end
 
-# NOTE: JointMCTS Planner gets the adjacency matrix as argument
 function JointMCTSPlanner(solver::MCTSSolver,
                           mdp::JointMDP{S,A},
-                          coord_adj_mat::Matrix{Int64},
-                          init_state::S
+                          init_state::AbstractVector{S},
                          ) where {S,A}
 
     # Get coord graph comps from maximal cliques of graph
-    @assert size(coord_adj_mat)[1] == n_agents(mdp) "Adjacency Mat does not match number of agents!"
-    coord_graph_components = maximal_cliques(SimpleGraph(coord_adj_mat))
+    adjmat = coord_graph_adj_mat(mdp)
+    @assert size(adjmat)[1] == n_agents(mdp) "Adjacency Mat does not match number of agents!"
+    coord_graph_components = maximal_cliques(SimpleGraph(adjmat))
 
     # Create tree FROM CURRENT STATE
     tree = JointMCTSTree(mdp, coord_graph_components, init_state, solver.n_iterations)
@@ -138,52 +130,21 @@ function clear_tree!(planner::JointMCTSPlanner, init_state)
     # Empty state vectors with state hints
     sz = min(planner.solver.n_iterations, 100_000)
 
-    empty!(planner.tree.child_ids)
-    sizehint!(planner.tree.child_ids, planner.solver.n_iterations)
-
-    empty!(planner.tree.total_n)
-    sizehint!(planner.tree.total_n, planner.solver.n_iterations)
+    # empty!(planner.tree.total_n)
+    # sizehint!(planner.tree.total_n, planner.solver.n_iterations)
 
     empty!(planner.tree.s_labels)
     sizehint!(planner.tree.s_labels, planner.solver.n_iterations)
 
-    # Don't touch coord graph components but reset stats to init_N and init_Q
-    # TODO: Code reuse with JointMCTSTree constructor...figure out
-    # Also, this assumes that actions really do depend on state. Can be more efficient if not
-    fill!(planner.tree.agent_actions, 0)
-    for i = 1:n_agents(planner.mdp)
-        planner.tree.agent_actions[i] = get_agent_actions(planner.mdp, i)
-    end
-
-    for (idx, comp) in enumerate(coord_graph_components)
-
-        n_comp_actions = prod([length(planner.tree.agent_actions[c]) for c in comp])
-
-        planner.tree.n_component_stats[idx] = Vector{Int64}(undef, n_comp_actions)
-        planner.tree.q_component_stats[idx] = Vector{Float64}(undef, n_comp_actions)
-
-        comp_tup = Tuple(1:length(planner.tree.agent_actions[c]) for c in comp)
-
-        for comp_ac_idx = 1:n_comp_actions
-
-            # Generate action subcomponent and call init_Q and init_N for it
-            ct_idx = CartesianIndices(comp_tup)[comp_ac_idx] # Tuple corresp to
-            local_action = [planner.tree.agent_actions[c] for c in Tuple(ct_idx)]
-
-            # NOTE: init_N and init_Q are functions of component AND local action
-            for (ag, ac) in zip(comp, local_action)
-                n_component_stats[idx][comp_ac_idx] = init_N(joint_mdp, init_state, comp, local_action)
-                q_component_stats[idx][comp_ac_idx] = init_Q(joint_mdp, init_state, comp, local_action)
-            end # (ag, ac) in zip
-        end # comp_ac_idx in n_comp_actions
-    end # for enumerate coord_graph_components
+    # Don't touch agent_actions and coord graph component
+    # Just clear comp stats dict
+    empty!(planner.tree.n_component_stats)
+    empty!(planner.tree.q_component_stats)
 end
 
 function get_state_node(tree::JointMCTSTree, s, planner::JointMCTSPlanner)
-    shash = hash(s)
-
-    if haskey(tree.state_map, shash)
-        return StateNode(tree, tree.state_map[shash]) # Is this correct? Not equiv to vanilla
+    if haskey(tree.state_map, s)
+        return StateNode(tree, tree.state_map[s]) # Is this correct? Not equiv to vanilla
     else
         return insert_node!(tree, planner, s)
     end
@@ -197,7 +158,7 @@ POMDPs.solve(solver::MCTSSolver, mdp::JointMDP) = JointMCTSPlanner(solver, mdp)
 function POMDPs.action(planner::JointMCTSPlanner, s)
     clear_tree!(planner, s) # Always call this at the top
     plan!(planner, s)
-    return varel_action(planner.mdp, planner.tree) # TODO: Need to implement
+    return varel_action(planner.mdp, planner.tree, s) # TODO: Need to implement
 end
 
 ## Not implementing value functions right now....
@@ -210,7 +171,7 @@ function plan!(planner::JointMCTSPlanner, s)
 end
 
 # Build_Tree can be called on the assumption that no reuse AND tree is reinitialized
-function build_tree(planner::JointMCTSPlanner, s)
+function build_tree(planner::JointMCTSPlanner, s::AbstractVector{S}) where S
 
     n_iterations = planner.solver.n_iterations
     depth = planner.solver.depth
@@ -239,12 +200,12 @@ function simulate(planner::JointMCTSPlanner, node::StateNode, depth::Int64)
     end
 
     # Choose best UCB action (NOT an action node)
-    ucb_action = varel_action_UCB(mdp, planner.tree, planner.solver.exploration_constant)
+    ucb_action = varel_action_UCB(mdp, planner.tree, planner.solver.exploration_constant, s)
 
     # MC Transition
     sp, r = gen(DDNOut(:sp, :r), mdp, s, ucb_action, rng)
 
-    spid = get(tree.state_map, hash(sp), 0) # may be non-zero even with no tree reuse
+    spid = get(tree.state_map, sp, 0) # may be non-zero even with no tree reuse
     if spid == 0
         spn = insert_node!(tree, planner, sp)
         spid = spn.id
@@ -254,8 +215,6 @@ function simulate(planner::JointMCTSPlanner, node::StateNode, depth::Int64)
     end
 
     ## Not bothering with tree vis right now
-
-    tree.total_n[node.id] += 1
 
     # Update component statistics! (non-trivial)
     # This is related but distinct from initialization
@@ -273,8 +232,99 @@ function simulate(planner::JointMCTSPlanner, node::StateNode, depth::Int64)
         comp_ac_idx = LinearIndices(comp_tup)[local_action_idxs...]
 
         # NOTE: NOW we can update stats. Could generalize incremental update more here
-        tree.n_component_stats[idx][comp_ac_idx] += 1
-        tree.q_component_stats[idx][comp_ac_idx] += (q - tree.q_component_stats[idx][comp_ac_idx]) / tree.n_component_stats[idx][comp_ac_idx]
+        tree.n_component_stats[s][idx][comp_ac_idx] += 1
+        tree.q_component_stats[s][idx][comp_ac_idx] += (q - tree.q_component_stats[idx][comp_ac_idx]) / tree.n_component_stats[idx][comp_ac_idx]
     end
     return q
+end
+
+@POMDP_require simulate(planner::JointMCTSPlanner, s, depth::Int64) begin
+    mdp = planner.mdp
+    P = typeof(mdp)
+    @req P <: JointMDP
+    SV = statetype(P)
+    @req typeof(SV) <: AbstractVector # TODO: Is this correct?
+    AV = actiontype(P)
+    @req typeof(A) <: AbstractVector
+    @req discount(::P)
+    @req isterminal(::P, ::SV)
+    @subreq insert_node!(planner.tree, planner, s)
+    @subreq estimate_value(planner.solved_estimate, mdp, s, depth)
+    @req gen(::DDNOut{(:sp, :r)}, ::P, ::SV, ::A, ::typeof(planner.rng))
+
+    # MMDP reqs
+    @req get_agent_actions(::P, ::Int64)
+    @req n_agents(::P)
+    @req coord_graph_adj_mat(::P)
+
+    # TODO: Should we also have this requirement for SV?
+    @req isequal(::S, ::S)
+    @req hash(::S)
+end
+
+
+
+function insert_node!(tree::JointMCTSTree, planner::JointMCTSPlanner, s::AbstractVector{S}) where S
+
+    push!(tree.state_labels, s)
+    tree.state_map[s] = length(tree.s_labels)
+
+    # Now initialize the stats for new node
+    n_comps = length(coord_graph_components)
+    n_component_stats = Vector{Vector{Int64}}(undef, n_comps)
+    q_component_stats = Vector{Vector{Float64}}(undef, n_comps)
+
+    # TODO: Could actually make actions state-dependent if need be
+    for (idx, comp) in enumerate(tree.coord_graph_components)
+
+        n_comp_actions = prod([length(agent_actions[c]) for c in comp])
+
+        n_component_stats[idx] = Vector{Int64}(undef, n_comp_actions)
+        q_component_stats[idx] = Vector{Float64}(undef, n_comp_actions)
+
+        comp_tup = Tuple(1:length(agent_actions[c]) for c in comp)
+
+        for comp_ac_idx = 1:n_comp_actions
+
+            # Generate action subcomponent and call init_Q and init_N for it
+            ct_idx = CartesianIndices(comp_tup)[comp_ac_idx] # Tuple corresp to
+            local_action = [agent_actions[c] for c in Tuple(ct_idx)]
+
+            # NOTE: init_N and init_Q are functions of component AND local action
+            for (ag, ac) in zip(comp, local_action)
+                n_component_stats[idx][comp_ac_idx] = init_N(planner.mdp, s, comp, local_action)
+                q_component_stats[idx][comp_ac_idx] = init_Q(planner.mdp, s, comp, local_action)
+            end
+        end
+    end
+
+    # Now update tree dictionaries FOR That state
+    tree.n_component_stats[s] = n_component_stats
+    tree.q_component_stats[s] = q_component_stats
+
+    # length(tree.s_labels) is just an alias for the number of state nodes
+    return StateNode(tree, length(tree.s_labels)
+end
+
+@POMDP_require insert_node!(tree::JointMCTSTree, planner::JointMCTSPlanner, s) begin
+
+    P = typeof(planner.mdp)
+    AV = actiontype(P)
+    A = eltype(AV)
+    SV = typeof(s)
+    S = eltype(SV)
+
+    # TODO: Review IQ and IN
+    IQ = typeof(planner.solver.init_Q)
+    if !(IQ <: Number) && !(IQ <: Function)
+        @req init_Q(::IQ, ::P, ::S, ::Vector{Int64}, ::AbstractVector{A})
+    end
+
+    IN = typeof(planner.solver.init_N)
+    if !(IN <: Number) && !(IN <: Function)
+        @req init_N(::IQ, ::P, ::S, ::Vector{Int64}, ::AbstractVector{A})
+    end
+
+    @req isequal(::S, ::S)
+    @req hash(::S)
 end
