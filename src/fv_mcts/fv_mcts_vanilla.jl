@@ -39,36 +39,6 @@ function JointMCTSTree(joint_mdp::JointMDP{S,A},
         agent_actions[i] = get_agent_actions(joint_mdp, i)
     end
 
-    # Initialize component stats
-    n_comps = length(coord_graph_components)
-    n_component_stats = Vector{Vector{Int64}}(undef, n_comps)
-    q_component_stats = Vector{Vector{Float64}}(undef, n_comps)
-
-    # Iterate over components and initialize
-    for (idx, comp) in enumerate(coord_graph_components)
-
-        n_comp_actions = prod([length(agent_actions[c]) for c in comp])
-
-        n_component_stats[idx] = Vector{Int64}(undef, n_comp_actions)
-        q_component_stats[idx] = Vector{Float64}(undef, n_comp_actions)
-
-        comp_tup = Tuple(1:length(agent_actions[c]) for c in comp)
-
-        for comp_ac_idx = 1:n_comp_actions
-
-            # Generate action subcomponent and call init_Q and init_N for it
-            ct_idx = CartesianIndices(comp_tup)[comp_ac_idx] # Tuple corresp to
-            local_action = [agent_actions[c] for c in Tuple(ct_idx)]
-
-            # NOTE: init_N and init_Q are functions of component AND local action
-            for (ag, ac) in zip(comp, local_action)
-                n_component_stats[idx][comp_ac_idx] = init_N(joint_mdp, init_state, comp, local_action)
-                q_component_stats[idx][comp_ac_idx] = init_Q(joint_mdp, init_state, comp, local_action)
-            end
-        end # comp_ac_idx in n_comp_actions
-    end # for comp in n_comps
-
-
     return JointMCTSTree{S}(Dict{typeof(init_state),Int64}(),
 
                                 sizehint!(Vector{typeof(init_state)}, sz),
@@ -233,7 +203,7 @@ function simulate(planner::JointMCTSPlanner, node::StateNode, depth::Int64)
 
         # NOTE: NOW we can update stats. Could generalize incremental update more here
         tree.n_component_stats[s][idx][comp_ac_idx] += 1
-        tree.q_component_stats[s][idx][comp_ac_idx] += (q - tree.q_component_stats[idx][comp_ac_idx]) / tree.n_component_stats[idx][comp_ac_idx]
+        tree.q_component_stats[s][idx][comp_ac_idx] += (q - tree.q_component_stats[s][idx][comp_ac_idx]) / tree.n_component_stats[s][idx][comp_ac_idx]
     end
     return q
 end
