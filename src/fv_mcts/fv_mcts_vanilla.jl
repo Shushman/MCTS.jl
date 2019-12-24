@@ -18,6 +18,8 @@ mutable struct JointMCTSTree{S}
     # Track stats for all action components over the n_iterations
     agent_actions::Vector{Int64}
     coord_graph_components::Vector{Vector{Int64}}
+    min_degree_ordering::Vector{Int64}
+
 
 
     n_component_stats::Dict{AbstractVector{S},Vector{Vector{Int64}}}
@@ -30,6 +32,7 @@ end
 # NOTE: This is explicitly assuming no tree reuse
 function JointMCTSTree(joint_mdp::JointMDP{S,A},
                        coord_graph_components::Vector{Vector{Int64}},
+                       min_degree_ordering::Vector{Int64}
                        init_state::AbstractVector{S},
                        sz::Int64=1000) where {S, A}
 
@@ -45,6 +48,7 @@ function JointMCTSTree(joint_mdp::JointMDP{S,A},
 
                                 agent_actions,
                                 coord_graph_components,
+                                min_degree_ordering,
                                 Dict{typeof(init_state),Vector{Vector{Int64}}}()
                                 Dict{typeof(init_state),Vector{Vector{Int64}}}()
                                 )
@@ -82,10 +86,14 @@ function JointMCTSPlanner(solver::MCTSSolver,
     # Get coord graph comps from maximal cliques of graph
     adjmat = coord_graph_adj_mat(mdp)
     @assert size(adjmat)[1] == n_agents(mdp) "Adjacency Mat does not match number of agents!"
-    coord_graph_components = maximal_cliques(SimpleGraph(adjmat))
+
+    adjmatgraph = SimpleGraph(adjmat)
+    coord_graph_components = maximal_cliques(adjmatgraph)
+    min_degree_ordering = sortperm(degree(adj))
 
     # Create tree FROM CURRENT STATE
-    tree = JointMCTSTree(mdp, coord_graph_components, init_state, solver.n_iterations)
+    tree = JointMCTSTree(mdp, coord_graph_components, min_degree_ordering,
+                         init_state, solver.n_iterations)
     se = convert_estimator(solver.estimate_value, solver, mdp)
 
     return JointMCTSPlanner(solver, mdp, tree, se, solver.rng)
