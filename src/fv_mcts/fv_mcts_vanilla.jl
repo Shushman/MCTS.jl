@@ -4,7 +4,7 @@
 
 
 # JointMCTS tree has to be different, to efficiently encode Q-stats
-mutable struct JointMCTSTree{S}
+mutable struct JointMCTSTree{S,A}
 
     # To track if state node in tree already
     # NOTE: We don't strictly need this at all if no tree reuse...
@@ -16,11 +16,9 @@ mutable struct JointMCTSTree{S}
     s_labels::Vector{AbstractVector{S}}
 
     # Track stats for all action components over the n_iterations
-    agent_actions::Vector{Int64}
+    agent_actions::Vector{AbstractVector{A}}
     coord_graph_components::Vector{Vector{Int64}}
     min_degree_ordering::Vector{Int64}
-
-
 
     n_component_stats::Dict{AbstractVector{S},Vector{Vector{Int64}}}
     q_component_stats::Dict{AbstractVector{S},Vector{Vector{Float64}}}
@@ -37,7 +35,7 @@ function JointMCTSTree(joint_mdp::JointMDP{S,A},
                        sz::Int64=1000) where {S, A}
 
     # Initialize full agent actions
-    agent_actions = Vector{Int64}(undef, n_agents(joint_mdp))
+    agent_actions = Vector{actiontype(joint_mdp)}(undef, n_agents(joint_mdp))
     for i = 1:n_agents(joint_mdp)
         agent_actions[i] = get_agent_actions(joint_mdp, i)
     end
