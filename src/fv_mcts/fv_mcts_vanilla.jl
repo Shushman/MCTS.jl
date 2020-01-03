@@ -30,7 +30,7 @@ end
 # NOTE: This is explicitly assuming no tree reuse
 function JointMCTSTree(joint_mdp::JointMDP{S,A},
                        coord_graph_components::Vector{Vector{Int64}},
-                       min_degree_ordering::Vector{Int64}
+                       min_degree_ordering::Vector{Int64},
                        init_state::AbstractVector{S},
                        sz::Int64=1000) where {S, A}
 
@@ -98,16 +98,13 @@ function JointMCTSPlanner(solver::MCTSSolver,
 end # end JointMCTSPlanner
 
 # Reset tree.
-function clear_tree!(planner::JointMCTSPlanner, init_state)
+function clear_tree!(planner::JointMCTSPlanner)
 
     # Clear out state hash dict entirely
     empty!(planner.tree.state_map)
 
     # Empty state vectors with state hints
     sz = min(planner.solver.n_iterations, 100_000)
-
-    # empty!(planner.tree.total_n)
-    # sizehint!(planner.tree.total_n, planner.solver.n_iterations)
 
     empty!(planner.tree.s_labels)
     sizehint!(planner.tree.s_labels, planner.solver.n_iterations)
@@ -132,7 +129,7 @@ POMDPs.solve(solver::MCTSSolver, mdp::JointMDP) = JointMCTSPlanner(solver, mdp)
 # IMP: Overriding action for JointMCTSPlanner here
 # NOTE: Hardcoding no tree reuse for now
 function POMDPs.action(planner::JointMCTSPlanner, s)
-    clear_tree!(planner, s) # Always call this at the top
+    clear_tree!(planner) # Always call this at the top
     plan!(planner, s)
     return varel_action(planner.mdp, planner.tree, s) # TODO: Need to implement
 end

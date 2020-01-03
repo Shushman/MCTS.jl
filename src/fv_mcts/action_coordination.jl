@@ -31,7 +31,7 @@ function varel_action(mdp::JointMDP{S,A}, tree::JointMCTSTree, s::AbstractVector
         new_potential_members = Vector{Int64}(undef, 0)
         for k in collect(keys(potential_fns))
             if ag_idx in k
-                
+
                 # Agent to-be-eliminated is in factor
                 push!(agent_factors, k)
 
@@ -45,7 +45,7 @@ function varel_action(mdp::JointMDP{S,A}, tree::JointMCTSTree, s::AbstractVector
             end
         end
 
-        if isempty(new_potential_members) == true 
+        if isempty(new_potential_members) == true
 
             # No out neighbors..either at beginning or end of ordering
             @assert agent_factors == [[ag_idx]] "agent_factors $(agent_factors) is not just [ag_idx] $([ag_idx])!"
@@ -154,6 +154,17 @@ function varel_action(mdp::JointMDP{S,A}, tree::JointMCTSTree, s::AbstractVector
 end
 
 # This is to compute the best action for UCB
-function varel_action_UCB end
+function varel_action_UCB(mdp::JointMDP{S,A}, tree::JointMCTSTree,
+                          c::Float64, s::AbstractVector{S}) where {S,A}
+
+    # How to make this work with var el?
+    # I think N(s) is always 1 since we are not assuming visiting the same states
+    # I don't think we are supposed to generate n_comp_stats for the intermediate
+    # potential functions. But then, how do we systematically use it?
+    # Perhaps we just add it when the q vals corresponding to actual original factors are summed
+    # E.g. in this line from above: ag_ac_values[ag_ac_idx] += potential_fns[factor][factor_action_linidx]
+    # If factor is an original factor for which we have stats, we add
+    # c*sqrt(1.0 / n_comp_stats[factor_idx][factor_action_linidx])
+end
 
 function varel_value end
