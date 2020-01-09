@@ -8,20 +8,20 @@ mutable struct JointMCTSTree{S,A}
 
     # To track if state node in tree already
     # NOTE: We don't strictly need this at all if no tree reuse...
-    state_map::Dict{AbstractVector{S},Int64}
+    state_map::Dict{<:AbstractVector{S},Int64}
 
     # these vectors have one entry for each state node
     # Only doing factored satistics (for actions), not state components
     # Looks like we don't need child_ids and total_n
-    s_labels::Vector{AbstractVector{S}}
+    s_labels::Vector{<:AbstractVector{S}}
 
     # Track stats for all action components over the n_iterations
-    agent_actions::Vector{AbstractVector{A}}
+    agent_actions::Vector{<:AbstractVector{A}}
     coord_graph_components::Vector{Vector{Int64}}
     min_degree_ordering::Vector{Int64}
 
-    n_component_stats::Dict{AbstractVector{S},Vector{Vector{Int64}}}
-    q_component_stats::Dict{AbstractVector{S},Vector{Vector{Float64}}}
+    n_component_stats::Dict{<:AbstractVector{S},Vector{Vector{Int64}}}
+    q_component_stats::Dict{<:AbstractVector{S},Vector{Vector{Float64}}}
 
     # Don't need a_labels because need to do var-el for best action anyway
 end
@@ -47,7 +47,7 @@ function JointMCTSTree(joint_mdp::JointMDP{S,A},
                                 agent_actions,
                                 coord_graph_components,
                                 min_degree_ordering,
-                                Dict{typeof(init_state),Vector{Vector{Int64}}}()
+                                Dict{typeof(init_state),Vector{Vector{Int64}}}(),
                                 Dict{typeof(init_state),Vector{Vector{Int64}}}()
                                 )
 end # function
@@ -68,7 +68,7 @@ get_state_node(tree::JointMCTSTree, id) = JointStateNode(tree, id)
 
 ## No need for `children` or ActionNode just yet
 
-mutable struct JointMCTSPlanner{S, A, SE, RNG <: AbstractRNG} <: AbstractMCTSPlanner{JM}
+mutable struct JointMCTSPlanner{S, A, SE, RNG <: AbstractRNG} <: AbstractMCTSPlanner{JointMDP{S,A}}
     solver::MCTSSolver
     mdp::JointMDP{S,A}
     tree::JointMCTSTree{S}
@@ -117,14 +117,14 @@ end
 
 function get_state_node(tree::JointMCTSTree, s, planner::JointMCTSPlanner)
     if haskey(tree.state_map, s)
-        return StateNode(tree, tree.state_map[s]) # Is this correct? Not equiv to vanilla
+        return JointStateNode(tree, tree.state_map[s]) # Is this correct? Not equiv to vanilla
     else
         return insert_node!(tree, planner, s)
     end
 end
 
 # no computation is done in solve - the solver is just given the mdp model that it will work with
-POMDPs.solve(solver::MCTSSolver, mdp::JointMDP) = JointMCTSPlanner(solver, mdp)
+POMDPs.solve(solver::MCTSSolver, mdp::JointMDP) = JointMCTSPlanner(solver, mdp, initialstate(mdp))
 
 # IMP: Overriding action for JointMCTSPlanner here
 # NOTE: Hardcoding no tree reuse for now
@@ -158,7 +158,7 @@ function build_tree(planner::JointMCTSPlanner, s::AbstractVector{S}) where S
     return tree
 end
 
-function simulate(planner::JointMCTSPlanner, node::StateNode, depth::Int64)
+function simulate(planner::JointMCTSPlanner, node::JointStateNode, depth::Int64)
 
     mdp = planner.mdp
     rng = planner.rng
@@ -184,7 +184,7 @@ function simulate(planner::JointMCTSPlanner, node::StateNode, depth::Int64)
         spid = spn.id
         q = r + discount(mdp) * estimate_value(planner.solved_estimate, planner.mdp, sp, depth - 1)
     else
-        q = r + discount(mdp) * simulate(planner, StateNode(tree, spid) , depth - 1)
+        q = r + discount(mdp) * simulate(planner, JointStateNode(tree, spid) , depth - 1)
     end
 
     ## Not bothering with tree vis right now
@@ -214,11 +214,11 @@ end
 @POMDP_require simulate(planner::JointMCTSPlanner, s, depth::Int64) begin
     mdp = planner.mdp
     P = typeof(mdp)
-    @req P <: JointMDP
+    @assert P <: JointMDP       # req does different thing?
     SV = statetype(P)
-    @req typeof(SV) <: AbstractVector # TODO: Is this correct?
+    @assert typeof(SV) <: AbstractVector # TODO: Is this correct?
     AV = actiontype(P)
-    @req typeof(A) <: AbstractVector
+    @assert typeof(A) <: AbstractVector
     @req discount(::P)
     @req isterminal(::P, ::SV)
     @subreq insert_node!(planner.tree, planner, s)
@@ -276,7 +276,7 @@ function insert_node!(tree::JointMCTSTree, planner::JointMCTSPlanner, s::Abstrac
     tree.q_component_stats[s] = q_component_stats
 
     # length(tree.s_labels) is just an alias for the number of state nodes
-    return StateNode(tree, length(tree.s_labels)
+    return JointStateNode(tree, length(tree.s_labels))
 end
 
 @POMDP_require insert_node!(tree::JointMCTSTree, planner::JointMCTSPlanner, s) begin

@@ -64,4 +64,8 @@ include("belief_mcts.jl")
 
 include("visualization.jl")
 
+include("fv_mcts/mmdp_repr.jl")
+include("fv_mcts/fv_mcts_vanilla.jl")
+include("fv_mcts/action_coordination.jl")
+
 end # module

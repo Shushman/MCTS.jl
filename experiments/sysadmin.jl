@@ -50,7 +50,8 @@ has one faulty neighbor and one dead neighbor, it will get a penalty of
 end
 
 POMDPs.discount(p::UniSysAdmin) = p.discount
-POMDPs.isterminal(p::UniSysAdmin, s) = all(x->x[2] == 3) # XXX
+#POMDPs.isterminal(p::UniSysAdmin, s) = all(x->x[2] == 3) # XXX
+POMDPs.isterminal(p::UniSysAdmin, s) = false
 
 
 n_agents(p::UniSysAdmin) = p.nagents
