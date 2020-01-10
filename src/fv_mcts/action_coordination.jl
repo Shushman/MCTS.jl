@@ -1,13 +1,17 @@
 ## Variable Elimination with the Coordination Graph
 
 # This is just for retrieving the best action at the end of planning
-function varel_action(mdp::JointMDP{S,A}, tree::JointMCTSTree, s::AbstractVector{S}) where {S,A}
+function varel_action(mdp::JointMDP{S,A}, tree::JointMCTSTree, s::AbstractVector{S},
+                      exploration_constant::Float64=0.0, node_id::Int64=0) where {S,A}
 
     n_agents = length(s)
     best_action_idxs = MVector{n_agents,Int64}(undef)
 
     # NOTE: looking up with vector of states
+    # Hacky way to avoid code reuse for UCB
     state_q_stats = tree.q_component_stats[s]
+    state_n_stats = tree.n_component_stats[s]
+    state_total_n = (node_id > 0) ? tree.total_n[node_id] : 0
 
     # Maintain set of potential functions
     # NOTE: Hashing a vector here
@@ -102,6 +106,14 @@ function varel_action(mdp::JointMDP{S,A}, tree::JointMCTSTree, s::AbstractVector
                         # TODO: verify for correctness. This is looking up the q-stats value of the factor action
                         # and adding to ag_ac_values at the corresp idx.
                         ag_ac_values[ag_ac_idx] += potential_fns[factor][factor_action_linidx]
+
+                        # Additionally add exploration stats if factor in original set
+                        factor_comp_idx = findfirst(isequal(factor), tree.coord_graph_components)
+                        if state_total_n > 0 && ~(isnothing(factor_comp_idx)) # NOTE: Julia1.1
+                            ag_ac_values[ag_ac_idx] += exploration_constant * sqrt(log(state_total_n)/state_n_stats[factor_comp_idx][factor_lin_idx])
+                        end
+
+
                     end # factor in agent_factors
                 end # (ag_ac_idx, ag_ac) in tree.agent_actions
 

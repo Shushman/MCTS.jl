@@ -12,7 +12,8 @@ mutable struct JointMCTSTree{S,A}
 
     # these vectors have one entry for each state node
     # Only doing factored satistics (for actions), not state components
-    # Looks like we don't need child_ids and total_n
+    # Looks like we don't need child_ids
+    total_n::Vector{Int}
     s_labels::Vector{<:AbstractVector{S}}
 
     # Track stats for all action components over the n_iterations
@@ -165,6 +166,7 @@ function simulate(planner::JointMCTSPlanner, node::JointStateNode, depth::Int64)
     s = state(node)
     tree = node.tree
 
+
     # once depth is zero return
     if isterminal(planner.mdp, s)
        return 0.0
@@ -188,6 +190,9 @@ function simulate(planner::JointMCTSPlanner, node::JointStateNode, depth::Int64)
     end
 
     ## Not bothering with tree vis right now
+
+    # Augment N(s)
+    tree.total_n[node.id] += 1
 
     # Update component statistics! (non-trivial)
     # This is related but distinct from initialization
@@ -241,6 +246,7 @@ function insert_node!(tree::JointMCTSTree, planner::JointMCTSPlanner, s::Abstrac
 
     push!(tree.state_labels, s)
     tree.state_map[s] = length(tree.s_labels)
+    push!(tree.total_n, 1)
 
     # Now initialize the stats for new node
     n_comps = length(coord_graph_components)
