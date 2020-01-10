@@ -88,7 +88,7 @@ function JointMCTSPlanner(solver::MCTSSolver,
 
     adjmatgraph = SimpleGraph(adjmat)
     coord_graph_components = maximal_cliques(adjmatgraph)
-    min_degree_ordering = sortperm(degree(adj))
+    min_degree_ordering = sortperm(degree(adjmatgraph))
 
     # Create tree FROM CURRENT STATE
     tree = JointMCTSTree(mdp, coord_graph_components, min_degree_ordering,

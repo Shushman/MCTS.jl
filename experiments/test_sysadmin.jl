@@ -4,7 +4,7 @@ using MCTS
 
 include("sysadmin.jl")
 sim = RolloutSimulator(max_steps=100, rng=MersenneTwister(7))
-mdp = UniSysAdmin()
+mdp = BiSysAdmin()
 @show coord_graph_adj_mat(mdp)
 d=20; n=100; c=10.
 @show d, n, c

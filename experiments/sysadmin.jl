@@ -4,7 +4,7 @@ using LightGraphs
 using POMDPs
 using Random
 
-using MCTS: JointMDP
+import MCTS: JointMDP, n_agents, get_agent_actions, coord_graph_adj_mat
 import POMDPs
 
 
@@ -16,6 +16,7 @@ import POMDPs
 const MachineState = SVector{2, Int}
 const MachineAction = @SArray [0, 1] # noop, reboot
 
+abstract type AbstractSysAdmin <: JointMDP{MachineState, Int} end
 """
 
 - `p_fail_base`:
@@ -34,7 +35,7 @@ an additional failing probability of `p_fail_bonus/2`. If the same machine
 has one faulty neighbor and one dead neighbor, it will get a penalty of
 `p_fail_bonus/2 + p_dead_bonus/2`.
 """
-@with_kw struct UniSysAdmin <: JointMDP{MachineState, Int}
+@with_kw struct UniSysAdmin <: AbstractSysAdmin
     nagents::Int = 4
     # status
     p_fail_base::Float64 = 0.4
@@ -49,14 +50,31 @@ has one faulty neighbor and one dead neighbor, it will get a penalty of
     discount::Float64 = 0.9
 end
 
-POMDPs.discount(p::UniSysAdmin) = p.discount
-#POMDPs.isterminal(p::UniSysAdmin, s) = all(x->x[2] == 3) # XXX
-POMDPs.isterminal(p::UniSysAdmin, s) = false
+@with_kw struct BiSysAdmin <: AbstractSysAdmin
+    nagents::Int = 4
+    # status
+    p_fail_base::Float64 = 0.4
+    p_fail_bonus::Float64 = 0.2
+    p_dead_base::Float64 = 0.1
+    p_dead_bonus::Float64 = 0.5
+    # load
+    p_load::Float64 = 0.6
+    p_doneG::Float64 = 0.9
+    p_doneF::Float64 = 0.6
+    
+    discount::Float64 = 0.9
+end
 
 
-n_agents(p::UniSysAdmin) = p.nagents
+POMDPs.discount(p::AbstractSysAdmin) = p.discount
+#POMDPs.isterminal(p::AbstractSysAdmin, s) = all(x->x[2] == 3) # XXX
+POMDPs.isterminal(p::AbstractSysAdmin, s) = false
 
-get_agent_actions(p::UniSysAdmin, idx::Int64, s::AbstractVector{MachineState}) = MachineAction
+
+n_agents(p::AbstractSysAdmin) = p.nagents
+
+get_agent_actions(p::AbstractSysAdmin, idx::Int64, s::AbstractVector{MachineState}) = MachineAction
+get_agent_actions(p::AbstractSysAdmin, idx::Int64) = MachineAction
 
 function coord_graph_adj_mat(p::UniSysAdmin)
     mat = zeros(Int64, p.nagents, p.nagents)
@@ -67,26 +85,26 @@ function coord_graph_adj_mat(p::UniSysAdmin)
     return mat
 end
 
-# function coord_graph_adj_mat(p::BiSysAdmin)
-#     mat = zeros(Int64, p.nagents, p.nagents)
-#     for i in 1:p.nagents-1
-#         mat[i, i+1] = 1
-#     end
-#     mat[p.nagents, 1] = 1
-#     mat = mat + mat'
-#     return mat
-# end
+function coord_graph_adj_mat(p::BiSysAdmin)
+    mat = zeros(Int64, p.nagents, p.nagents)
+    for i in 1:p.nagents-1
+        mat[i, i+1] = 1
+    end
+    mat[p.nagents, 1] = 1
+    mat = mat + mat'
+    return mat
+end
 
 
 # status: good, fail, dead
 # load: idle, work, done
-POMDPs.states(p::UniSysAdmin) = [vec(MachineState[MachineState(status, load) for status in 1:3, load in 1:3]) for i in 1:n_agents(p)]
+POMDPs.states(p::AbstractSysAdmin) = [vec(MachineState[MachineState(status, load) for status in 1:3, load in 1:3]) for i in 1:n_agents(p)]
 
-function POMDPs.initialstate(p::UniSysAdmin, rng::AbstractRNG=Random.GLOBAL_RNG)
+function POMDPs.initialstate(p::AbstractSysAdmin, rng::AbstractRNG=Random.GLOBAL_RNG)
     return MachineState[MachineState(1, 1) for _ in 1:n_agents(p)]
 end
 
-function POMDPs.gen(p::UniSysAdmin, s, a, rng)
+function POMDPs.gen(p::AbstractSysAdmin, s, a, rng)
     coordgraph = DiGraph(coord_graph_adj_mat(p))
     sp_vec = Vector{MachineState}(undef, n_agents(p))
     r_vec = Vector{Float64}(undef, n_agents(p))
