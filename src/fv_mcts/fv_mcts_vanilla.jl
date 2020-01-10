@@ -8,21 +8,21 @@ mutable struct JointMCTSTree{S,A}
 
     # To track if state node in tree already
     # NOTE: We don't strictly need this at all if no tree reuse...
-    state_map::Dict{<:AbstractVector{S},Int64}
+    state_map::Dict{AbstractVector{S},Int64}
 
     # these vectors have one entry for each state node
     # Only doing factored satistics (for actions), not state components
     # Looks like we don't need child_ids
     total_n::Vector{Int}
-    s_labels::Vector{<:AbstractVector{S}}
+    s_labels::Vector{AbstractVector{S}}
 
     # Track stats for all action components over the n_iterations
-    agent_actions::Vector{<:AbstractVector{A}}
+    agent_actions::Vector{AbstractVector{A}}
     coord_graph_components::Vector{Vector{Int64}}
     min_degree_ordering::Vector{Int64}
 
-    n_component_stats::Dict{<:AbstractVector{S},Vector{Vector{Int64}}}
-    q_component_stats::Dict{<:AbstractVector{S},Vector{Vector{Float64}}}
+    n_component_stats::Dict{AbstractVector{S},Vector{Vector{Int64}}}
+    q_component_stats::Dict{AbstractVector{S},Vector{Vector{Float64}}}
 
     # Don't need a_labels because need to do var-el for best action anyway
 end
@@ -36,15 +36,16 @@ function JointMCTSTree(joint_mdp::JointMDP{S,A},
                        sz::Int64=1000) where {S, A}
 
     # Initialize full agent actions
+    # TODO(jkg): this is incorrect? Or we need to override actiontype to refer to agent actions?
     agent_actions = Vector{actiontype(joint_mdp)}(undef, n_agents(joint_mdp))
     for i = 1:n_agents(joint_mdp)
         agent_actions[i] = get_agent_actions(joint_mdp, i)
     end
 
-    return JointMCTSTree{S}(Dict{typeof(init_state),Int64}(),
-
-                                sizehint!(Vector{typeof(init_state)}, sz),
-
+    return JointMCTSTree{S, A}(Dict{typeof(init_state),Int64}(),
+                                Vector{Int}(undef, sz),
+                                #sizehint!(Vector{typeof(init_state)}, sz),
+                                Vector{typeof(init_state)}(undef, sz),
                                 agent_actions,
                                 coord_graph_components,
                                 min_degree_ordering,
