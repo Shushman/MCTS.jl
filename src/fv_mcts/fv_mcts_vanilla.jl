@@ -43,9 +43,9 @@ function JointMCTSTree(joint_mdp::JointMDP{S,A},
     end
 
     return JointMCTSTree{S, A}(Dict{typeof(init_state),Int64}(),
-                                Vector{Int}(undef, sz),
+                                sizehint!(Int[], sz),
                                 #sizehint!(Vector{typeof(init_state)}, sz),
-                                Vector{typeof(init_state)}(undef, sz),
+                                sizehint!(typeof(init_state)[], sz),
                                 agent_actions,
                                 coord_graph_components,
                                 min_degree_ordering,
@@ -151,7 +151,7 @@ function build_tree(planner::JointMCTSPlanner, s::AbstractVector{S}) where S
     n_iterations = planner.solver.n_iterations
     depth = planner.solver.depth
 
-    root = insert_node!(tree, planner, s)
+    root = insert_node!(planner.tree, planner, s)
 
     # build the tree
     for n = 1:n_iterations
@@ -245,30 +245,30 @@ end
 
 function insert_node!(tree::JointMCTSTree, planner::JointMCTSPlanner, s::AbstractVector{S}) where S
 
-    push!(tree.state_labels, s)
+    push!(tree.s_labels, s)
     tree.state_map[s] = length(tree.s_labels)
     push!(tree.total_n, 1)
 
     # Now initialize the stats for new node
-    n_comps = length(coord_graph_components)
+    n_comps = length(tree.coord_graph_components)
     n_component_stats = Vector{Vector{Int64}}(undef, n_comps)
     q_component_stats = Vector{Vector{Float64}}(undef, n_comps)
 
     # TODO: Could actually make actions state-dependent if need be
     for (idx, comp) in enumerate(tree.coord_graph_components)
 
-        n_comp_actions = prod([length(agent_actions[c]) for c in comp])
+        n_comp_actions = prod([length(tree.agent_actions[c]) for c in comp])
 
         n_component_stats[idx] = Vector{Int64}(undef, n_comp_actions)
         q_component_stats[idx] = Vector{Float64}(undef, n_comp_actions)
 
-        comp_tup = Tuple(1:length(agent_actions[c]) for c in comp)
+        comp_tup = Tuple(1:length(tree.agent_actions[c]) for c in comp)
 
         for comp_ac_idx = 1:n_comp_actions
 
             # Generate action subcomponent and call init_Q and init_N for it
             ct_idx = CartesianIndices(comp_tup)[comp_ac_idx] # Tuple corresp to
-            local_action = [agent_actions[c] for c in Tuple(ct_idx)]
+            local_action = [tree.agent_actions[c] for c in Tuple(ct_idx)]
 
             # NOTE: init_N and init_Q are functions of component AND local action
             for (ag, ac) in zip(comp, local_action)
