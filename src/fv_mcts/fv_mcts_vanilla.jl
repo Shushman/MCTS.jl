@@ -1,6 +1,7 @@
 ## We can use the following directly without modification
 ## 1. domain_knowledge.jl for Rollout, init_Q and init_N functions
 ## 2. MCTSSolver for representing the overall MCTS (underlying things will change)
+using StaticArrays
 
 
 # JointMCTS tree has to be different, to efficiently encode Q-stats
@@ -157,7 +158,7 @@ function build_tree(planner::JointMCTSPlanner, s::AbstractVector{S}) where S
     for n = 1:n_iterations
         simulate(planner, root, depth)
     end
-    return tree
+    return planner.tree
 end
 
 function simulate(planner::JointMCTSPlanner, node::JointStateNode, depth::Int64)
@@ -185,9 +186,10 @@ function simulate(planner::JointMCTSPlanner, node::JointStateNode, depth::Int64)
     if spid == 0
         spn = insert_node!(tree, planner, sp)
         spid = spn.id
-        q = r + discount(mdp) * estimate_value(planner.solved_estimate, planner.mdp, sp, depth - 1)
+        # TODO define estimate_value
+        q = r .+ discount(mdp) * 0.0#estimate_value(planner.solved_estimate, planner.mdp, sp, depth - 1)
     else
-        q = r + discount(mdp) * simulate(planner, JointStateNode(tree, spid) , depth - 1)
+        q = r .+ discount(mdp) * simulate(planner, JointStateNode(tree, spid) , depth - 1)
     end
 
     ## Not bothering with tree vis right now
@@ -212,7 +214,7 @@ function simulate(planner::JointMCTSPlanner, node::JointStateNode, depth::Int64)
 
         # NOTE: NOW we can update stats. Could generalize incremental update more here
         tree.n_component_stats[s][idx][comp_ac_idx] += 1
-        tree.q_component_stats[s][idx][comp_ac_idx] += (q - tree.q_component_stats[s][idx][comp_ac_idx]) / tree.n_component_stats[s][idx][comp_ac_idx]
+        tree.q_component_stats[s][idx][comp_ac_idx] += (q[comp_ac_idx] - tree.q_component_stats[s][idx][comp_ac_idx]) / tree.n_component_stats[s][idx][comp_ac_idx]
     end
     return q
 end

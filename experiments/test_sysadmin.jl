@@ -11,4 +11,4 @@ d=20; n=100; c=10.
 solver = MCTSSolver(depth=d, n_iterations=n, exploration_constant=c, rng=MersenneTwister(8))
 
 planner = solve(solver, mdp)
-simulate(sim, mdp, planner)
+action(planner, initialstate(mdp))

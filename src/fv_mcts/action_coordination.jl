@@ -5,7 +5,7 @@ function varel_action(mdp::JointMDP{S,A}, tree::JointMCTSTree, s::AbstractVector
                       exploration_constant::Float64=0.0, node_id::Int64=0) where {S,A}
 
     n_agents = length(s)
-    best_action_idxs = MVector{n_agents,Int64}(undef)
+    best_action_idxs = MVector{n_agents}([-1 for i in 1:n_agents])
 
     # NOTE: looking up with vector of states
     # Hacky way to avoid code reuse for UCB
@@ -110,7 +110,7 @@ function varel_action(mdp::JointMDP{S,A}, tree::JointMCTSTree, s::AbstractVector
                         # Additionally add exploration stats if factor in original set
                         factor_comp_idx = findfirst(isequal(factor), tree.coord_graph_components)
                         if state_total_n > 0 && ~(isnothing(factor_comp_idx)) # NOTE: Julia1.1
-                            ag_ac_values[ag_ac_idx] += exploration_constant * sqrt(log(state_total_n)/state_n_stats[factor_comp_idx][factor_lin_idx])
+                            ag_ac_values[ag_ac_idx] += exploration_constant * sqrt(log(state_total_n)/state_n_stats[factor_comp_idx][factor_action_linidx])
                         end
 
 
@@ -138,13 +138,13 @@ function varel_action(mdp::JointMDP{S,A}, tree::JointMCTSTree, s::AbstractVector
     end # ag_idx in min_deg_ordering
 
     # NOTE: At this point, best_action_idxs has at least one entry...for the last action obtained
-    @assert sum(isassigned(best_action_idxs, i) for i = 1:n_agents) >= 1 "best_action_idxs is still undefined!"
+    @assert !all(x->x==-1, best_action_idxs) "best_action_idxs is still undefined!"
 
     # Message passing in reverse order to recover best action
     for ag_idx in Base.Iterators.reverse(tree.min_degree_ordering)
 
         # Only do something if best action already not obtained
-        if isassigned(best_action_idxs, ag_idx) == false
+        if best_action_idxs[ag_idx] == -1
 
             # Should just be able to lookup best response function
             (agents, best_response_vect) = best_response_fns[ag_idx]

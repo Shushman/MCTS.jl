@@ -70,6 +70,7 @@ POMDPs.discount(p::AbstractSysAdmin) = p.discount
 #POMDPs.isterminal(p::AbstractSysAdmin, s) = all(x->x[2] == 3) # XXX
 POMDPs.isterminal(p::AbstractSysAdmin, s) = false
 
+POMDPs.actionindex(p::AbstractSysAdmin, a, c) = findfirst(isequal(a), MachineAction)
 
 n_agents(p::AbstractSysAdmin) = p.nagents
 
