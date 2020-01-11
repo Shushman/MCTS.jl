@@ -176,7 +176,7 @@ function simulate(planner::JointMCTSPlanner, node::JointStateNode, depth::Int64)
     end
 
     # Choose best UCB action (NOT an action node)
-    ucb_action = varel_action_UCB(mdp, planner.tree, planner.solver.exploration_constant, s)
+    ucb_action = varel_action(mdp, planner.tree, s, planner.solver.exploration_constant, node.id)
 
     # MC Transition
     sp, r = gen(DDNOut(:sp, :r), mdp, s, ucb_action, rng)
