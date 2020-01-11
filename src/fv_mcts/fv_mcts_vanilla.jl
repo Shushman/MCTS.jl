@@ -271,9 +271,10 @@ function insert_node!(tree::JointMCTSTree, planner::JointMCTSPlanner, s::Abstrac
             local_action = [tree.agent_actions[c] for c in Tuple(ct_idx)]
 
             # NOTE: init_N and init_Q are functions of component AND local action
+            # TODO(jkg): init_N and init_Q need to be defined
             for (ag, ac) in zip(comp, local_action)
-                n_component_stats[idx][comp_ac_idx] = init_N(planner.mdp, s, comp, local_action)
-                q_component_stats[idx][comp_ac_idx] = init_Q(planner.mdp, s, comp, local_action)
+                n_component_stats[idx][comp_ac_idx] = 0.0 #init_N(planner.solver.init_N, planner.mdp, s, comp, local_action)
+                q_component_stats[idx][comp_ac_idx] = 0.0 #init_Q(planner.solver.init_Q, planner.mdp, s, comp, local_action)
             end
         end
     end
