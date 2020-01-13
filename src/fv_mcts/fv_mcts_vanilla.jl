@@ -187,7 +187,7 @@ function simulate(planner::JointMCTSPlanner, node::JointStateNode, depth::Int64)
         spn = insert_node!(tree, planner, sp)
         spid = spn.id
         # TODO define estimate_value
-        q = r .+ discount(mdp) * 0.0#estimate_value(planner.solved_estimate, planner.mdp, sp, depth - 1)
+        q = r .+ discount(mdp) * estimate_value(planner.solved_estimate, planner.mdp, sp, depth - 1)
     else
         q = r .+ discount(mdp) * simulate(planner, JointStateNode(tree, spid) , depth - 1)
     end

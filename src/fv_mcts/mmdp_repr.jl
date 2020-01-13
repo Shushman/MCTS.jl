@@ -28,3 +28,46 @@ function coord_graph_adj_mat end
 
 # NOTE: JKG, Continue from here
 # User should override statetype and actiontype to return the CONCRETE type of state
+function POMDPs.actions(p::JointMDP{S, A}, s) where {S, A}
+    collect(Iterators.product((get_agent_actions(p, i, s) for i in 1:n_agents(p))...))
+end
+
+function POMDPs.actions(p::JointMDP{S, A}) where {S, A}
+    collect(Iterators.product((get_agent_actions(p, i) for i in 1:n_agents(p))...))
+end
+
+function POMDPs.simulate(sim::RolloutSimulator, mdp::JointMDP, policy::Policy, initialstate::S) where {S}
+
+    if sim.eps == nothing
+        eps = 0.0
+    else
+        eps = sim.eps
+    end
+
+    if sim.max_steps == nothing
+        max_steps = typemax(Int)
+    else
+        max_steps = sim.max_steps
+    end
+
+    s = initialstate
+
+    disc = 1.0
+    r_total = zeros(n_agents(mdp))
+    step = 1
+
+    while disc > eps && !isterminal(mdp, s) && step <= max_steps
+        a = action(policy, s)
+
+        sp, r = gen(DDNOut(:sp,:r), mdp, s, a, sim.rng)
+
+        r_total .+= disc.*r
+
+        s = sp
+
+        disc *= discount(mdp)
+        step += 1
+    end
+
+    return r_total
+end
