@@ -99,7 +99,8 @@ end
 
 # status: good, fail, dead
 # load: idle, work, done
-POMDPs.states(p::AbstractSysAdmin) = [vec(MachineState[MachineState(status, load) for status in 1:3, load in 1:3]) for i in 1:n_agents(p)]
+get_agent_states(p::AbstractSysAdmin, idx::Int64) = vec(MachineState[MachineState(status,load) for status in 1:3, load in 1:3])
+POMDPs.states(p::AbstractSysAdmin) = map(collect, Iterators.product((get_agent_states(p, i) for i in 1:n_agents(p))...))
 
 function POMDPs.initialstate(p::AbstractSysAdmin, rng::AbstractRNG=Random.GLOBAL_RNG)
     return MachineState[MachineState(1, 1) for _ in 1:n_agents(p)]

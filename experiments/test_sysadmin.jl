@@ -12,3 +12,10 @@ solver = MCTSSolver(depth=d, n_iterations=n, exploration_constant=c, rng=Mersenn
 
 planner = solve(solver, mdp)
 action(planner, initialstate(mdp))
+
+# Note: uncomment for running on all states
+# res = Dict{statetype(mdp), actiontype(mdp)}()
+# for s in POMDPs.states(mdp)
+#     a = action(planner, s)
+#     res[s] = a
+# end

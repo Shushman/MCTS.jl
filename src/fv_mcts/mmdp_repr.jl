@@ -28,6 +28,10 @@ function coord_graph_adj_mat end
 
 # NOTE: JKG, Continue from here
 # User should override statetype and actiontype to return the CONCRETE type of state
+init_Q(n::Number, mdp::JointMDP, s, c, a) = convert(Float64, n)
+init_N(n::Number, mdp::JointMDP, s, c, a) = convert(Int, n)
+
+
 function POMDPs.actions(p::JointMDP{S, A}, s) where {S, A}
     collect(Iterators.product((get_agent_actions(p, i, s) for i in 1:n_agents(p))...))
 end

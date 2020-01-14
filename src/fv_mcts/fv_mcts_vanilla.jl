@@ -58,6 +58,7 @@ end # function
 
 
 Base.isempty(t::JointMCTSTree) = isempty(t.state_map)
+state_nodes(t::JointMCTSTree) = (JointStateNode(t, id) for id in 1:length(t.total_n))
 
 struct JointStateNode{S}
     tree::JointMCTSTree{S}
@@ -68,6 +69,7 @@ get_state_node(tree::JointMCTSTree, id) = JointStateNode(tree, id)
 
 # accessors for state nodes
 @inline state(n::JointStateNode) = n.tree.s_labels[n.id]
+@inline total_n(n::JointStateNode) = n.tree.total_n[n.id]
 
 ## No need for `children` or ActionNode just yet
 
@@ -275,8 +277,8 @@ function insert_node!(tree::JointMCTSTree, planner::JointMCTSPlanner, s::Abstrac
             # NOTE: init_N and init_Q are functions of component AND local action
             # TODO(jkg): init_N and init_Q need to be defined
             for (ag, ac) in zip(comp, local_action)
-                n_component_stats[idx][comp_ac_idx] = 0.0 #init_N(planner.solver.init_N, planner.mdp, s, comp, local_action)
-                q_component_stats[idx][comp_ac_idx] = 0.0 #init_Q(planner.solver.init_Q, planner.mdp, s, comp, local_action)
+                n_component_stats[idx][comp_ac_idx] = init_N(planner.solver.init_N, planner.mdp, s, comp, local_action)
+                q_component_stats[idx][comp_ac_idx] = init_Q(planner.solver.init_Q, planner.mdp, s, comp, local_action)
             end
         end
     end
