@@ -76,6 +76,7 @@ n_agents(p::AbstractSysAdmin) = p.nagents
 
 get_agent_actions(p::AbstractSysAdmin, idx::Int64, s::AbstractVector{MachineState}) = MachineAction
 get_agent_actions(p::AbstractSysAdmin, idx::Int64) = MachineAction
+POMDPs.actions(p::AbstractSysAdmin) = vec(map(collect, Iterators.product((get_agent_actions(p, i) for i in 1:n_agents(p))...)))
 
 function coord_graph_adj_mat(p::UniSysAdmin)
     mat = zeros(Int64, p.nagents, p.nagents)
@@ -107,12 +108,28 @@ end
 # status: good, fail, dead
 # load: idle, work, done
 get_agent_states(p::AbstractSysAdmin, idx::Int64) = vec(MachineState[MachineState(status,load) for status in 1:3, load in 1:3])
-POMDPs.states(p::AbstractSysAdmin) = map(collect, Iterators.product((get_agent_states(p, i) for i in 1:n_agents(p))...))
+POMDPs.states(p::AbstractSysAdmin) = vec(map(collect, Iterators.product((get_agent_states(p, i) for i in 1:n_agents(p))...)))
 
 function POMDPs.initialstate(p::AbstractSysAdmin, rng::AbstractRNG=Random.GLOBAL_RNG)
     return MachineState[MachineState(1, 1) for _ in 1:n_agents(p)]
 end
 
+"""
+
+Basically, the only way we can get reward is by:
+
+- Starting from the Load state (since it's the only one that can complete)
+- Doing action 0;
+- And ending up in the Done state.
+
+dead machine increases the probability that its neighbors become faulty and die
+
+system receives a reward of 1 if a process terminates successfully
+
+status is faulty, processes take longer to terminate
+
+If the machine dies, the process is lost.
+"""
 function POMDPs.gen(p::AbstractSysAdmin, s, a, rng)
     coordgraph = coord_graph(p) #SimpleGraph(coord_graph_adj_mat(p))
     sp_vec = Vector{MachineState}(undef, n_agents(p))
@@ -196,18 +213,6 @@ function POMDPs.gen(p::AbstractSysAdmin, s, a, rng)
         sp_vec[aidx] = MachineState(newstatus, newload)
         r_vec[aidx] = rew
     end
-
-    # Basically, the only way we can get reward is by:
-    # - Starting from the Load state (since it's the only one that can complete)
-    # - Doing action 0;
-    # - And ending up in the Done state.
-
-    # dead machine increases the probability that its neighbors become faulty and die
-
-    # system receives a reward of 1 if a process terminates successfully
-
-    # status is faulty, processes take longer to terminate
-
-    # If the machine dies, the process is lost.
+    
     return (sp=sp_vec, r=r_vec)
 end
