@@ -96,6 +96,13 @@ function coord_graph_adj_mat(p::BiSysAdmin)
     return mat
 end
 
+function coord_graph(p::UniSysAdmin)
+    DiGraph(coord_graph_adj_mat(p))
+end
+
+function coord_graph(p::BiSysAdmin)
+    SimpleGraph(coord_graph_adj_mat(p))
+end
 
 # status: good, fail, dead
 # load: idle, work, done
@@ -107,7 +114,7 @@ function POMDPs.initialstate(p::AbstractSysAdmin, rng::AbstractRNG=Random.GLOBAL
 end
 
 function POMDPs.gen(p::AbstractSysAdmin, s, a, rng)
-    coordgraph = DiGraph(coord_graph_adj_mat(p))
+    coordgraph = coord_graph(p) #SimpleGraph(coord_graph_adj_mat(p))
     sp_vec = Vector{MachineState}(undef, n_agents(p))
     r_vec = Vector{Float64}(undef, n_agents(p))
     for aidx in 1:n_agents(p)
