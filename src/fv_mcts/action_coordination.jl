@@ -54,6 +54,7 @@ function varel_action(mdp::JointMDP{S,A}, tree::JointMCTSTree, s::AbstractVector
             # No out neighbors..either at beginning or end of ordering
             @assert agent_factors == [[ag_idx]] "agent_factors $(agent_factors) is not just [ag_idx] $([ag_idx])!"
 
+            # TODO: If all equal, should we sample randomly?
             _, best_ac_idx = findmax(potential_fns[[ag_idx]])
             best_action_idxs[ag_idx] = best_ac_idx
 
@@ -110,7 +111,7 @@ function varel_action(mdp::JointMDP{S,A}, tree::JointMCTSTree, s::AbstractVector
                         # Additionally add exploration stats if factor in original set
                         factor_comp_idx = findfirst(isequal(factor), tree.coord_graph_components)
                         if state_total_n > 0 && ~(isnothing(factor_comp_idx)) # NOTE: Julia1.1
-                            ag_ac_values[ag_ac_idx] += exploration_constant * sqrt(log(state_total_n)/state_n_stats[factor_comp_idx][factor_action_linidx])
+                            ag_ac_values[ag_ac_idx] += exploration_constant * sqrt((log(state_total_n)+1.0)/(state_n_stats[factor_comp_idx][factor_action_linidx]+1.0))
                         end
 
 
@@ -120,6 +121,7 @@ function varel_action(mdp::JointMDP{S,A}, tree::JointMCTSTree, s::AbstractVector
 
                 # Now we lookup ag_ac_values for the best value to be put in new_potential_stats
                 # and the best index to be put in best_response_vect
+                #TODO: If all ag_ac_values equal, should we sample randomly?
                 best_val, best_idx = findmax(ag_ac_values)
 
                 new_potential_stats[comp_ac_idx] = best_val
@@ -155,7 +157,7 @@ function varel_action(mdp::JointMDP{S,A}, tree::JointMCTSTree, s::AbstractVector
             best_response_idx = LinearIndices(agent_ac_tup)[best_agents_action_idxs...]
 
             # Assign best action for ag_idx
-            best_action_idxs[ag_idx] = best_response_idx
+            best_action_idxs[ag_idx] = best_response_vect[best_response_idx]
         end # isdefined
     end
 
