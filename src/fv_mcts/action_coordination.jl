@@ -140,7 +140,7 @@ function varel_action(mdp::JointMDP{S,A}, tree::JointMCTSTree, s::AbstractVector
     end # ag_idx in min_deg_ordering
 
     # NOTE: At this point, best_action_idxs has at least one entry...for the last action obtained
-    @assert !all(x->x==-1, best_action_idxs) "best_action_idxs is still undefined!"
+    @assert !all(isequal(-1), best_action_idxs) "best_action_idxs is still undefined!"
 
     # Message passing in reverse order to recover best action
     for ag_idx in Base.Iterators.reverse(tree.min_degree_ordering)
