@@ -46,8 +46,10 @@ has one faulty neighbor and one dead neighbor, it will get a penalty of
     p_load::Float64 = 0.6
     p_doneG::Float64 = 0.9
     p_doneF::Float64 = 0.6
-    
+
     discount::Float64 = 0.9
+
+    reboot_penalty = -0.7
 end
 
 @with_kw struct BiSysAdmin <: AbstractSysAdmin
@@ -61,8 +63,10 @@ end
     p_load::Float64 = 0.6
     p_doneG::Float64 = 0.9
     p_doneF::Float64 = 0.6
-    
+
     discount::Float64 = 0.9
+
+    reboot_penalty = -0.7
 end
 
 
@@ -152,6 +156,7 @@ function POMDPs.gen(p::AbstractSysAdmin, s, a, rng)
         p_fail = p.p_fail_base + bonus
         p_dead = p.p_dead_base + bonus
 
+        # Rewards only if noop
         if a[aidx] == 0         # noop
             status = s[aidx][1]
             if status == 1      # Good
@@ -211,10 +216,11 @@ function POMDPs.gen(p::AbstractSysAdmin, s, a, rng)
         else                    # reboot
             newstatus = 1       # Good
             newload = 1
+            rew += p.reboot_penalty
         end
         sp_vec[aidx] = MachineState(newstatus, newload)
         r_vec[aidx] = rew
     end
-    
+
     return (sp=sp_vec, r=r_vec)
 end

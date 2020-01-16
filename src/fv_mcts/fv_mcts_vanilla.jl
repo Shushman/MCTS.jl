@@ -34,7 +34,7 @@ function JointMCTSTree(joint_mdp::JointMDP{S,A},
                        coord_graph_components::Vector{Vector{Int64}},
                        min_degree_ordering::Vector{Int64},
                        init_state::AbstractVector{S},
-                       sz::Int64=1000) where {S, A}
+                       sz::Int64=10000) where {S, A}
 
     # Initialize full agent actions
     # TODO(jkg): this is incorrect? Or we need to override actiontype to refer to agent actions?
@@ -180,7 +180,7 @@ function simulate(planner::JointMCTSPlanner, node::JointStateNode, depth::Int64)
 
     # Choose best UCB action (NOT an action node)
     ucb_action = varel_action(mdp, planner.tree, s, planner.solver.exploration_constant, node.id)
-
+    @show ucb_action
     # MC Transition
     sp, r = gen(DDNOut(:sp, :r), mdp, s, ucb_action, rng)
 
