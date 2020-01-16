@@ -207,7 +207,7 @@ function POMDPs.gen(p::AbstractSysAdmin, s, a, rng)
                     else
                         newload = 2
                     end
-                elseif newstatus == 3
+                elseif newstatus == 3 # dead
                     newload = 1
                 end
             elseif load == 3    # done
