@@ -100,7 +100,6 @@ function solve(solver::IQLearningSolver, mdp::JointMDP)
         t = 0
         while !isterminal(mdp, s) && t < solver.max_episode_length
             a = action(exploration_policy, s)
-            @show a
             sp, r = gen(DDNOut(:sp, :r), mdp, s, a, rng)
             for ag in 1:n_agents(mdp)
                 si = get_agent_stateindex(mdp, ag, s[ag])

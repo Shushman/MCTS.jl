@@ -66,7 +66,7 @@ end
 
     discount::Float64 = 0.9
 
-    reboot_penalty = -0.7
+    reboot_penalty = -0.0
 end
 
 
