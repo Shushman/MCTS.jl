@@ -18,6 +18,12 @@ Returns the discrete actions for the given agent index
 function get_agent_actions end
 
 
+function get_agent_states end
+
+function get_agent_actionindex end
+
+function get_agent_stateindex end
+
 """
     function coord_graph_adj_mat(m::JointMDP)
 

@@ -4,7 +4,7 @@ using LightGraphs
 using POMDPs
 using Random
 
-import MCTS: JointMDP, n_agents, get_agent_actions, coord_graph_adj_mat
+import MCTS: JointMDP, n_agents, get_agent_states, get_agent_actions, coord_graph_adj_mat, get_agent_actionindex, get_agent_stateindex
 import POMDPs
 
 
@@ -80,6 +80,7 @@ n_agents(p::AbstractSysAdmin) = p.nagents
 
 get_agent_actions(p::AbstractSysAdmin, idx::Int64, s::AbstractVector{MachineState}) = MachineAction
 get_agent_actions(p::AbstractSysAdmin, idx::Int64) = MachineAction
+get_agent_actionindex(p::AbstractSysAdmin, idx::Int64, a) = findfirst(isequal(a), get_agent_actions(p, idx))
 POMDPs.actions(p::AbstractSysAdmin) = vec(map(collect, Iterators.product((get_agent_actions(p, i) for i in 1:n_agents(p))...)))
 POMDPs.actionindex(p::AbstractSysAdmin, a) = findfirst(isequal(a), actions(p))
 
@@ -113,6 +114,7 @@ end
 # status: good, fail, dead
 # load: idle, work, done
 get_agent_states(p::AbstractSysAdmin, idx::Int64) = vec(MachineState[MachineState(status,load) for status in 1:3, load in 1:3])
+get_agent_stateindex(p::AbstractSysAdmin, idx::Int64, s) = findfirst(isequal(s), get_agent_states(p, idx))
 POMDPs.states(p::AbstractSysAdmin) = vec(map(collect, Iterators.product((get_agent_states(p, i) for i in 1:n_agents(p))...)))
 POMDPs.stateindex(p::AbstractSysAdmin, s) = findfirst(isequal(s), states(p))
 
