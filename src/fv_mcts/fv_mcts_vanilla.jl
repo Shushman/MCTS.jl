@@ -136,7 +136,8 @@ POMDPs.solve(solver::MCTSSolver, mdp::JointMDP) = JointMCTSPlanner(solver, mdp, 
 function POMDPs.action(planner::JointMCTSPlanner, s)
     clear_tree!(planner) # Always call this at the top
     plan!(planner, s)
-    return varel_action(planner.mdp, planner.tree, s) # TODO: Need to implement
+    action =  varel_action(planner.mdp, planner.tree, s)
+    return action
 end
 
 ## Not implementing value functions right now....
@@ -180,7 +181,7 @@ function simulate(planner::JointMCTSPlanner, node::JointStateNode, depth::Int64)
 
     # Choose best UCB action (NOT an action node)
     ucb_action = varel_action(mdp, planner.tree, s, planner.solver.exploration_constant, node.id)
-    @show ucb_action
+    # @show ucb_action
     # MC Transition
     sp, r = gen(DDNOut(:sp, :r), mdp, s, ucb_action, rng)
 
@@ -216,7 +217,8 @@ function simulate(planner::JointMCTSPlanner, node::JointStateNode, depth::Int64)
 
         # NOTE: NOW we can update stats. Could generalize incremental update more here
         tree.n_component_stats[s][idx][comp_ac_idx] += 1
-        tree.q_component_stats[s][idx][comp_ac_idx] += (q[comp_ac_idx] - tree.q_component_stats[s][idx][comp_ac_idx]) / tree.n_component_stats[s][idx][comp_ac_idx]
+        q_comp_value = sum(q[c] for c in comp)
+        tree.q_component_stats[s][idx][comp_ac_idx] += (q_comp_value - tree.q_component_stats[s][idx][comp_ac_idx]) / tree.n_component_stats[s][idx][comp_ac_idx]
     end
     return q
 end
