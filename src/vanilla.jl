@@ -323,6 +323,9 @@ end
     @req gen(::DDNOut{(:sp, :r)}, ::P, ::S, ::A, ::typeof(planner.rng))
     @req isequal(::S, ::S) # for hasnode
     @req hash(::S) # for hasnode
+
+    ## Adding for stateful gen - need to reset MDP to when simulate was first called
+    @req reset_after_simulate(::P)
 end
 
 function insert_node!(tree::MCTSTree, planner::MCTSPlanner, s)
