@@ -63,6 +63,7 @@ mutable struct MCTSSolver <: AbstractMCTSSolver
     estimate_value::Any
     init_Q::Any
     init_N::Any
+    reset_after_simulate::Function
     reuse_tree::Bool
     enable_tree_vis::Bool
 end
@@ -80,9 +81,10 @@ function MCTSSolver(;n_iterations::Int64 = 100,
                      estimate_value = RolloutEstimator(RandomSolver(rng)),
                      init_Q = 0.0,
                      init_N = 0,
+                     reset_after_simulate::Function,
                      reuse_tree::Bool = false,
                      enable_tree_vis::Bool=false)
-    return MCTSSolver(n_iterations, max_time, depth, exploration_constant, rng, estimate_value, init_Q, init_N, reuse_tree, enable_tree_vis)
+    return MCTSSolver(n_iterations, max_time, depth, exploration_constant, rng, estimate_value, init_Q, init_N, reset_after_simulate, reuse_tree, enable_tree_vis)
 end
 
 mutable struct MCTSTree{S,A}
@@ -266,10 +268,10 @@ function build_tree(planner::AbstractMCTSPlanner, s)
     for n = 1:n_iterations
         simulate(planner, root, depth)
         if CPUtime_us() - start_us >= planner.solver.max_time * 1e6
-            reset_after_simulate(planner.mdp)
+            planner.solver.reset_after_simulate(planner.mdp)
             break
         end
-        reset_after_simulate(planner.mdp)
+        planner.solver.reset_after_simulate(planner.mdp)
     end
     return tree
 end
@@ -325,9 +327,6 @@ end
     @req gen(::DDNOut{(:sp, :r)}, ::P, ::S, ::A, ::typeof(planner.rng))
     @req isequal(::S, ::S) # for hasnode
     @req hash(::S) # for hasnode
-
-    ## Adding for stateful gen - need to reset MDP to when simulate was first called
-    @req reset_after_simulate(::P)
 end
 
 function insert_node!(tree::MCTSTree, planner::MCTSPlanner, s)
