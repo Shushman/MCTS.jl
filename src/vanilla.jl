@@ -266,8 +266,10 @@ function build_tree(planner::AbstractMCTSPlanner, s)
     for n = 1:n_iterations
         simulate(planner, root, depth)
         if CPUtime_us() - start_us >= planner.solver.max_time * 1e6
+            reset_after_simulate(planner.mdp)
             break
         end
+        reset_after_simulate(planner.mdp)
     end
     return tree
 end
